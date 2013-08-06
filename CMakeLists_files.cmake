@@ -179,6 +179,9 @@ list (APPEND EXAMPLE_SOURCE_FILES
 	tutorials/tutorial2.cpp
 	tutorials/tutorial3.cpp
 	tutorials/tutorial4.cpp
+	tutorials/my_tutorial1.cpp
+	tutorials/my_tutorial2.cpp
+	tutorials/my_tutorial3.cpp
 	)
 
 # originally generated with the command:
