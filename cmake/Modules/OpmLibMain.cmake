@@ -91,7 +91,7 @@ find_and_append_package_list_to (${project} ${${project}_DEPS})
 
 # remove the dependency on the testing framework from the main library;
 # it is not possible to query for Boost twice with different components.
-list (REMOVE_ITEM ${project}_LIBRARIES ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY})
+list (REMOVE_ITEM "${project}_LIBRARIES" "${Boost_UNIT_TEST_FRAMEWORK_LIBRARY}")
 
 # don't import more libraries than we need to
 include (UseOnlyNeeded)
@@ -121,6 +121,20 @@ if (COMMAND sources_hook)
 	sources_hook ()
 endif (COMMAND sources_hook)
 
+# convenience macro to add version of another suite, e.g. dune-common
+macro (opm_need_version_of what)
+	string (TOUPPER "${what}" _WHAT)
+	string (REPLACE "-" "_" _WHAT "${_WHAT}")
+	list (APPEND ${project}_CONFIG_IMPL_VARS
+		${_WHAT}_VERSION_MAJOR ${_WHAT}_VERSION_MINOR ${_WHAT}_VERSION_REVISION
+		)
+endmacro (opm_need_version_of suite module)
+
+# use this hook to add version macros before we write to config.h
+if (COMMAND config_hook)
+	config_hook ()
+endif (COMMAND config_hook)
+
 # create configuration header which describes available features
 # necessary to compile this library. singular version is the names that
 # is required by this project alone, plural version transitively
@@ -129,11 +143,13 @@ include (ConfigVars)
 list (APPEND ${project}_CONFIG_VARS ${${project}_CONFIG_VAR})
 
 # write configuration variables to this file. note that it is a temporary.
+# _CONFIG_IMPL_VARS are defines that are only written to config.h internal
+# to this project; they are not exported to any installed files.
 message (STATUS "Writing config file \"${PROJECT_BINARY_DIR}/config.h\"...")
 set (CONFIG_H "${PROJECT_BINARY_DIR}/config.h.tmp")
 configure_vars (
 	FILE  CXX  ${CONFIG_H}
-	WRITE ${${project}_CONFIG_VARS}
+	WRITE ${${project}_CONFIG_VARS} ${${project}_CONFIG_IMPL_VARS}
 	)
 
 # call this hook to let it setup necessary conditions for Fortran support
@@ -225,7 +241,9 @@ opm_doc (${project} ${doxy_dir})
 # provide compatibility with using this build in dunecontrol
 include (DuneCompat)
 include (LibtoolArchives)
-configure_la (${project} ${${project}_TARGET} ${project}_LIBTOOL_ARCHIVE)
+if (${project}_TARGET)
+	configure_la (${project} ${${project}_TARGET} ${project}_LIBTOOL_ARCHIVE)
+endif ()
 
 ### clean in-source builds ###
 include (OpmDistClean)
