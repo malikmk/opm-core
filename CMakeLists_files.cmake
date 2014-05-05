@@ -169,6 +169,10 @@ list (APPEND TEST_SOURCE_FILES
         tests/test_blackoilstate.cpp
         tests/test_wellsmanager.cpp
         tests/test_wellcontrols.cpp
+				tests/test_petsc.c
+				tests/test_petscksp.c
+				tests/test_hypre.c
+				tests/test_mumps.c
   )
 
 # originally generated with the command:
