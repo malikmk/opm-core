@@ -31,6 +31,7 @@
 #include <opm/core/linalg/LinearSolverIstl.hpp>
 #endif
 
+#include <opm/core/linalg/LinearSolverPetsc.hpp>
 #include <opm/core/utility/parameters/ParameterGroup.hpp>
 #include <opm/core/utility/ErrorMacros.hpp>
 #include <string>
@@ -46,6 +47,7 @@ namespace Opm
 #elif HAVE_DUNE_ISTL
         solver_.reset(new LinearSolverIstl);
 #else
+        solver_.reset(new LinearSolverPetsc);
         OPM_THROW(std::runtime_error, "No linear solver available, you must have UMFPACK or dune-istl installed to use LinearSolverFactory.");
 #endif
     }
@@ -69,8 +71,11 @@ namespace Opm
             solver_.reset(new LinearSolverIstl(param));
 #endif
         }
-
+        else if (ls == "petsc") {
+            solver_.reset(new LinearSolverPetsc(param));
+        }
         else {
+
             OPM_THROW(std::runtime_error, "Linear solver " << ls << " is unknown.");
         }
 
