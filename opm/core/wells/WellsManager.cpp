@@ -411,6 +411,12 @@ namespace Opm
                 OPM_THROW(std::runtime_error, "Currently we do not support well status " << WellCommon::Status2String(well->getStatus( timeStep )));
             }
 
+            if (well->getStatus(timeStep) == WellCommon::SHUT) {
+                well_controls_shut_well( w_->ctrls[well_index] );
+                well_index++;
+                continue;
+            }
+
             if (well->isInjector(timeStep)) {
                 const WellInjectionProperties& injectionProperties = well->getInjectionProperties(timeStep);
                 int ok = 1;
@@ -471,26 +477,19 @@ namespace Opm
                     OPM_THROW(std::runtime_error, "We cannot handle THP limit for well " << well_names[well_index]);
                 }
 
-
                 if (!ok) {
                     OPM_THROW(std::runtime_error, "Failure occured appending controls for well " << well_names[well_index]);
                 }
 
-
-                {
+                if (injectionProperties.controlMode != WellInjector::CMODE_UNDEFINED) {
                     WellsManagerDetail::InjectionControl::Mode mode = WellsManagerDetail::InjectionControl::mode( injectionProperties.controlMode );
                     int cpos = control_pos[mode];
                     if (cpos == -1 && mode != WellsManagerDetail::InjectionControl::GRUP) {
                         OPM_THROW(std::runtime_error, "Control not specified in well " << well_names[well_index]);
                     }
 
-                    // We need to check if the well is shut or not
-                    if (well->getStatus( timeStep ) == WellCommon::SHUT) {
-                        well_controls_shut_well( w_->ctrls[well_index] );
-                    }
                     set_current_control(well_index, cpos, w_);
                 }
-
 
                 // Set well component fraction.
                 double cf[3] = { 0.0, 0.0, 0.0 };
@@ -614,18 +613,19 @@ namespace Opm
                     OPM_THROW(std::runtime_error, "Failure occured appending controls for well " << well_names[well_index]);
                 }
 
-                WellsManagerDetail::ProductionControl::Mode mode = WellsManagerDetail::ProductionControl::mode(productionProperties.controlMode);
-                int cpos = control_pos[mode];
-                if (cpos == -1 && mode != WellsManagerDetail::ProductionControl::GRUP) {
-                    OPM_THROW(std::runtime_error, "Control mode type " << mode << " not present in well " << well_names[well_index]);
+                if (productionProperties.controlMode != WellProducer::CMODE_UNDEFINED) {
+                    WellsManagerDetail::ProductionControl::Mode mode = WellsManagerDetail::ProductionControl::mode(productionProperties.controlMode);
+                    int cpos = control_pos[mode];
+                    if (cpos == -1 && mode != WellsManagerDetail::ProductionControl::GRUP) {
+                        OPM_THROW(std::runtime_error, "Control mode type " << mode << " not present in well " << well_names[well_index]);
+                    }
+                    if (cpos == -1 && mode != WellsManagerDetail::ProductionControl::GRUP) {
+                        OPM_THROW(std::runtime_error, "Control mode type " << mode << " not present in well " << well_names[well_index]);
+                    }
+                    else {
+                        set_current_control(well_index, cpos, w_);
+                    }
                 }
-                // If it's shut, we complement the cpos
-                if (well->getStatus(timeStep) == WellCommon::SHUT) {
-                    well_controls_shut_well( w_->ctrls[well_index] );
-                } else if (cpos == -1 && mode != WellsManagerDetail::ProductionControl::GRUP) {
-                    OPM_THROW(std::runtime_error, "Control mode type " << mode << " not present in well " << well_names[well_index]);
-                }
-                set_current_control(well_index, cpos, w_);
 
                 // Set well component fraction to match preferred phase for the well.
                 double cf[3] = { 0.0, 0.0, 0.0 };
