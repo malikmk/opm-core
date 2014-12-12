@@ -163,6 +163,7 @@ list (APPEND TEST_SOURCE_FILES
 	tests/test_nonuniformtablelinear.cpp
 	tests/test_sparsevector.cpp
 	tests/test_sparsetable.cpp
+	tests/test_sparsematrix.cpp
 	tests/test_velocityinterpolation.cpp
 	tests/test_quadratures.cpp
 	tests/test_uniformtablelinear.cpp
@@ -286,6 +287,8 @@ list (APPEND PUBLIC_HEADER_FILES
 	opm/core/linalg/LinearSolverInterface.hpp
 	opm/core/linalg/LinearSolverIstl.hpp
 	opm/core/linalg/LinearSolverUmfpack.hpp
+	opm/core/linalg/SparseMatrix.hpp
+	opm/core/linalg/SparseMatrix_impl.hpp
 	opm/core/linalg/blas_lapack.h
 	opm/core/linalg/call_umfpack.h
 	opm/core/linalg/sparse_sys.h
