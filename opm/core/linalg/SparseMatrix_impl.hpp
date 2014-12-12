@@ -290,4 +290,6 @@ namespace Opm {
     }
 }
 
+#include "SparseMatrix_csr.hpp"
+
 #endif //OPM_SPARSEMATRIX_IMPL
