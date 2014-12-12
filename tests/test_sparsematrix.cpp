@@ -73,6 +73,8 @@ static void coverage() {
      */
 
     test_coverage< Opm::CSR< double > >();
+    test_coverage< Dune::BCRSMatrix< Dune::FieldMatrix< double, 1, 1 > > >();
+    test_coverage< Dune::BCRSMatrix< Dune::FieldMatrix< double, 2, 2 > > >();
 }
 
 BOOST_AUTO_TEST_CASE(test_interface) {
@@ -108,6 +110,7 @@ BOOST_AUTO_TEST_CASE(test_builder_sparse) {
     builder.add( 4, 3, 2.0 );
 
     auto csr = builder.convert< Opm::CSR< double > >();
+    auto csr1 = builder.convert< Dune::BCRSMatrix< Dune::FieldMatrix< double, 1, 1 > > >();
 
     BOOST_CHECK( csr.rows() == 5 );
     BOOST_CHECK( csr.nonzeros() == 4 );

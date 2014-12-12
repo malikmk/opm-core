@@ -290,6 +290,7 @@ list (APPEND PUBLIC_HEADER_FILES
 	opm/core/linalg/SparseMatrix.hpp
 	opm/core/linalg/SparseMatrix_impl.hpp
 	opm/core/linalg/SparseMatrix_csr.hpp
+	opm/core/linalg/SparseMatrix_dune.hpp
 	opm/core/linalg/blas_lapack.h
 	opm/core/linalg/call_umfpack.h
 	opm/core/linalg/sparse_sys.h

@@ -291,5 +291,6 @@ namespace Opm {
 }
 
 #include "SparseMatrix_csr.hpp"
+#include "SparseMatrix_dune.hpp"
 
 #endif //OPM_SPARSEMATRIX_IMPL
