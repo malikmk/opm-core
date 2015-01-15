@@ -51,6 +51,7 @@ list (APPEND MAIN_SOURCE_FILES
 	opm/core/linalg/LinearSolverIstl.cpp
 	opm/core/linalg/LinearSolverUmfpack.cpp
 	opm/core/linalg/LinearSolverPetsc.cpp
+	opm/core/linalg/petsc.cpp
 	opm/core/linalg/call_umfpack.c
 	opm/core/linalg/sparse_sys.c
 	opm/core/pressure/CompressibleTpfa.cpp
@@ -300,6 +301,7 @@ list (APPEND PUBLIC_HEADER_FILES
 	opm/core/linalg/LinearSolverUmfpack.hpp
 	opm/core/linalg/LinearSolverPetsc.hpp
 	opm/core/linalg/ParallelIstlInformation.hpp
+	opm/core/linalg/petsc.hpp
 	opm/core/linalg/blas_lapack.h
 	opm/core/linalg/call_umfpack.h
 	opm/core/linalg/sparse_sys.h
