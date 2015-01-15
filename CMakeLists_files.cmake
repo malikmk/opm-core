@@ -50,6 +50,7 @@ list (APPEND MAIN_SOURCE_FILES
 	opm/core/linalg/LinearSolverIstl.cpp
 	opm/core/linalg/LinearSolverUmfpack.cpp
 	opm/core/linalg/LinearSolverPetsc.cpp
+	opm/core/linalg/petscvector.cpp
 	opm/core/linalg/petsc.cpp
 	opm/core/linalg/call_umfpack.c
 	opm/core/linalg/sparse_sys.c
@@ -165,6 +166,7 @@ list (APPEND TEST_SOURCE_FILES
 	tests/test_event.cpp
 	tests/test_nonuniformtablelinear.cpp
 	tests/test_sparsevector.cpp
+	tests/test_petscvector.cpp
 	tests/test_sparsetable.cpp
 	tests/test_velocityinterpolation.cpp
 	tests/test_quadratures.cpp
@@ -293,6 +295,7 @@ list (APPEND PUBLIC_HEADER_FILES
 	opm/core/linalg/LinearSolverUmfpack.hpp
 	opm/core/linalg/LinearSolverPetsc.hpp
 	opm/core/linalg/petsc.hpp
+	opm/core/linalg/petscvector.hpp
 	opm/core/linalg/blas_lapack.h
 	opm/core/linalg/call_umfpack.h
 	opm/core/linalg/sparse_sys.h
