@@ -134,6 +134,26 @@ vector& vector::operator/=( vector::scalar rhs ) {
     return *this *= ( 1 / rhs );
 }
 
+vector& vector::operator+=( const vector& rhs ) {
+    /* VecAXPY breaks if the vectors are not different. If they are equal,
+     * *this += *this, then it is equal to *this *= 2.
+     */
+    if( this->ptr() == rhs.ptr() ) return *this *= 2;
+
+    auto err = VecAXPY( this->ptr(), 1, rhs ); CHKERRXX( err );
+    return *this;
+}
+
+vector& vector::operator-=( const vector& rhs ) {
+    /* VecAXPY breaks if the vectors are not different. In the case of
+     * *this -= *this, this is identical to assign( 0 ) or *this *= 0.
+     */
+    if( this->ptr() == rhs.ptr() ) return *this *= 0;
+
+    auto err = VecAXPY( this->ptr(), -1, rhs ); CHKERRXX( err );
+    return *this;
+}
+
 vector operator+( vector lhs, vector::scalar rhs ) {
     return lhs += rhs;
 }
@@ -150,9 +170,17 @@ vector operator/( vector lhs, vector::scalar rhs ) {
     return lhs /= rhs;
 }
 
+vector operator+( vector lhs, const vector& rhs ) {
+    return lhs += rhs;
+}
+
+vector operator-( vector lhs, const vector& rhs ) {
+    return lhs -= rhs;
+}
+
 vector::scalar operator*( const vector& lhs, const vector& rhs ) {
     assert( lhs.size() == rhs.size() );
-     
+
     return dot( lhs, rhs );
 }
 

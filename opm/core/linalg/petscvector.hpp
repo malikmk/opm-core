@@ -117,6 +117,13 @@ namespace petsc {
             /// \param[in] scalar   Value to scale with
             vector& operator/=( scalar );
 
+            /// Vector addition, X + Y.
+            /// \param[in] vector   Vector to add
+            vector& operator+=( const vector& );
+            /// Vector subtraction, X - Y.
+            /// \param[in] vector   Vector to subtract
+            vector& operator-=( const vector& );
+
             /* these currently do not have to be friends (since vector is
              * implicitly convertible), but they are for least possible
              * surprise
@@ -126,6 +133,8 @@ namespace petsc {
             friend vector operator*( vector, scalar );
             friend vector operator/( vector, scalar );
 
+            friend vector operator+( vector, const vector& );
+            friend vector operator-( vector, const vector& );
             friend scalar operator*( const vector&, const vector& );
 
             /// Equality check

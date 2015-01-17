@@ -101,6 +101,8 @@ BOOST_AUTO_TEST_CASE(test_petscvector_arithmetic) {
 
     vector vec1( range( 0.0, 10.0 ) );
     vector vec_add_target( range( 2.0, 12.0 ) );
+    vector vec_empty( 10, 0.0 );
+
     auto vec_add = vec1 + 2;
     auto vec_sub = vec_add_target - 2;
 
@@ -112,6 +114,7 @@ BOOST_AUTO_TEST_CASE(test_petscvector_arithmetic) {
     BOOST_CHECK( vec_sub == vec1 );
     BOOST_CHECK( vec_mul == vec_mul_target );
     BOOST_CHECK( vec_div == vec1 );
+    BOOST_CHECK( vec_empty == vec1 - vec1 );
 }
 
 BOOST_AUTO_TEST_CASE(test_petscvector_functional) {
