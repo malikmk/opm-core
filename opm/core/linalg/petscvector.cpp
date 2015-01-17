@@ -134,6 +134,32 @@ vector& vector::operator/=( vector::scalar rhs ) {
     return *this *= ( 1 / rhs );
 }
 
+vector& vector::operator+=( const vector& rhs ) {
+    /* VecAXPY breaks if the vectors are not different, so if they are, copy
+     * one and use that for the addition
+     */
+    if( this->ptr() == rhs.ptr() ) {
+        auto rhs_copy = rhs;
+        return *this += rhs_copy;
+    }
+
+    auto err = VecAXPY( this->ptr(), 1, rhs ); CHKERRXX( err );
+    return *this;
+}
+
+vector& vector::operator-=( const vector& rhs ) {
+    /* VecAXPY breaks if the vectors are not different, so if they are, copy
+     * one and use that for the addition
+     */
+    if( this->ptr() == rhs.ptr() ) {
+        auto rhs_copy = rhs;
+        return *this -= rhs_copy;
+    }
+
+    auto err = VecAXPY( this->ptr(), -1, rhs ); CHKERRXX( err );
+    return *this;
+}
+
 vector operator+( vector lhs, vector::scalar rhs ) {
     return lhs += rhs;
 }
@@ -150,9 +176,17 @@ vector operator/( vector lhs, vector::scalar rhs ) {
     return lhs /= rhs;
 }
 
+vector operator+( vector lhs, const vector& rhs ) {
+    return lhs += rhs;
+}
+
+vector operator-( vector lhs, const vector& rhs ) {
+    return lhs -= rhs;
+}
+
 vector::scalar operator*( const vector& lhs, const vector& rhs ) {
     assert( lhs.size() == rhs.size() );
-     
+
     return dot( lhs, rhs );
 }
 
