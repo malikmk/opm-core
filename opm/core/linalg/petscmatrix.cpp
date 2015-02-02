@@ -296,7 +296,10 @@ matrix::builder::builder( matrix::size_type rows, matrix::size_type cols ) :
     CHKERRXX( err );
 }
 
-matrix::builder::builder( const matrix::builder& x ) : m( x ) {}
+matrix::builder::builder( const matrix::builder& x ) : m( x ) {
+    MatAssemblyBegin( this->m, MAT_FLUSH_ASSEMBLY );
+    MatAssemblyEnd( this->m, MAT_FLUSH_ASSEMBLY );
+}
 
 matrix::builder& matrix::builder::insert(
         matrix::size_type row,
@@ -401,6 +404,24 @@ matrix matrix::builder::move() {
      */
     return *this;
 }
+
+matrix::builder& matrix::builder::add(
+        matrix::size_type row,
+        matrix::size_type col,
+        matrix::scalar value ) {
+
+    const size_type rows[] = { row };
+    const size_type cols[] = { col };
+    const scalar vals[] = { value };
+
+    auto err = MatSetValues( this->ptr(),
+            1, rows,
+            1, cols,
+            vals, ADD_VALUES ); CHKERRXX( err );
+
+    return *this;
+}
+
 
 
 matrix::builder& matrix::builder::assemble() {

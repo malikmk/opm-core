@@ -199,6 +199,8 @@ namespace petsc {
             /// \param[in] value    (Optional) the value to insert.
             builder& insert( size_type, size_type, scalar = scalar() );
 
+            builder& add( size_type, size_type, scalar = scalar() );
+
             /// Insert a full (sub)matrix in CSR format. This is more efficient
             /// than inserting single values. If the (sub)matrix sets some
             /// value previously set, that value will be overwritten by the
