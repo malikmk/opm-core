@@ -2,10 +2,13 @@
 #include <opm/core/linalg/petscvector.hpp>
 #include <opm/core/linalg/petscmatrix.hpp>
 
+
 #include <cassert>
 #include <memory>
 #include <utility>
 #include <vector>
+
+#include <iostream>
 
 /* Slight hack to get things working. This sets the communicator used when
  * constructing new vectors - however, this should be configurable. When full
@@ -76,15 +79,17 @@ matrix::matrix( const matrix& x ) {
     auto err = MatDuplicate( x, MAT_COPY_VALUES, &y ); CHKERRXX( err );
     err = MatCopy( x, y, SAME_NONZERO_PATTERN ); CHKERRXX( err );
 
+    std::cout << "Copying into new matrix" << std::endl; 
+
     this->m.reset( y );
 }
 
-matrix::matrix( const matrix::builder& builder ) : m( builder.commit().m ) {}
+matrix::matrix( const matrix::builder& builder ) :
+    m( builder.commit().m.release() ) { std::cout << "Constructed from builder" << std::endl; }
 
 matrix::matrix( matrix::builder&& builder ) :
     /* assemble and move the builder's matrix object into this one */
-    m( builder.assemble().m.m.release() ) 
-{}
+    m( builder.assemble().m.m.release() ) {}
 
 matrix::matrix( matrix::size_type rows, matrix::size_type cols ) {
     matrix mat;
@@ -259,9 +264,9 @@ matrix& matrix::hermitian_transpose() {
     return *this;
 }
 
-inline Mat matrix::ptr() const {
-    return this->m.get();
-}
+//inline Mat matrix::ptr() const {
+//    return this->m.get();
+//}
 
 matrix multiply( const matrix& rhs, const matrix& lhs, matrix::scalar fill ) {
     Mat x;
@@ -289,16 +294,43 @@ matrix hermitian_transpose( matrix rhs ) {
     return x;
 }
 
-matrix::builder::builder( matrix::size_type rows, matrix::size_type cols ) :
-    m( matrix( rows, cols ) )
+matrix::builder::builder( matrix::size_type rows, matrix::size_type cols )
+    //: m( matrix( rows, cols ) )
 {
-    auto err = MatSetUp( this->ptr() );
+    Mat x;
+    auto err = MatCreateAIJViennaCL( get_comm(),
+            PETSC_DECIDE, PETSC_DECIDE,
+            rows, cols,
+            20, NULL,
+            20, NULL,
+            &x );
+    //auto err = MatCreateAIJ( get_comm(),
+    //        PETSC_DECIDE, PETSC_DECIDE,
+    //        rows, cols,
+    //        20, NULL,
+    //        20, NULL,
+    //        &x );
+    //auto err = MatSeqAIJSetPreallocation( this->ptr(), 20, NULL );
+    //auto err = MatSetUp( this->ptr() );
     CHKERRXX( err );
+
+    this->m = matrix( x );
 }
 
-matrix::builder::builder( const matrix::builder& x ) : m( x ) {
-    MatAssemblyBegin( this->m, MAT_FLUSH_ASSEMBLY );
-    MatAssemblyEnd( this->m, MAT_FLUSH_ASSEMBLY );
+matrix::builder::builder( const matrix::builder& x ) : m( x.commit() ) {}
+
+matrix::builder::builder( matrix::builder&& x ) :
+    m( std::move( x.m ) ) {}
+
+matrix::builder& matrix::builder::operator=( const matrix::builder& x ) {
+    auto b = x;
+    std::swap( b.m, this->m );
+    return *this;
+}
+
+matrix::builder& matrix::builder::operator=( matrix::builder&& x ) {
+    std::swap( x.m.m, this->m.m );
+    return *this;
 }
 
 matrix::builder& matrix::builder::insert(
@@ -396,7 +428,7 @@ matrix matrix::builder::commit() const {
 }
 
 matrix matrix::builder::move() {
-    /* 
+    /*
      * We assume that matrix' constructor( builder&& ) handles the actual move
      * and assembly. The reason for this is that we want return builder; to
      * construct matrices, and we want the move constructor to behave nicely.
@@ -433,9 +465,9 @@ matrix::builder& matrix::builder::assemble() {
     return *this;
 }
 
-inline Mat matrix::builder::ptr() const {
-    return this->m;
-}
+//inline Mat matrix::builder::ptr() const {
+//    return this->m;
+//}
 
 }
 }

@@ -36,6 +36,11 @@ namespace petsc {
             /// Copy constructor
             matrix( const matrix& );
 
+            matrix& operator=( matrix x ) {
+                std::swap( this->m, x.m );
+                return *this;
+            }
+
             matrix( const builder& );
             matrix( builder&& );
 
@@ -53,7 +58,7 @@ namespace petsc {
             /// \param[out] size    Number of rows in the matrix
             size_type rows() const;
             /// Get number of cols.
-            /// \param[out] size    Number of columns in the matrix 
+            /// \param[out] size    Number of columns in the matrix
             size_type cols() const;
 
             /// Add a value to all elements in the matrix
@@ -154,7 +159,7 @@ namespace petsc {
             template< typename T > T operator+( T );
 
             /* a convenient, explicit way to get the underlying Mat */
-            inline Mat ptr() const;
+            inline Mat ptr() const { return this->m.get(); }
     };
 
     /// Matrix-matrix multiplication. This is similar to operator*, but with
@@ -181,7 +186,7 @@ namespace petsc {
             typedef matrix::scalar scalar;
             typedef matrix::size_type size_type;
 
-            builder() = delete;
+            builder() : m( Mat( NULL ) ) {} //= delete;
 
             /// Constructor. PETSc -needs- to know the dimensions of the matrix
             /// beforehand, so a default constructor is not provided.
@@ -191,6 +196,9 @@ namespace petsc {
             /// useful when several matrices share some structure, but diverges
             /// at a certain point
             builder( const builder& );
+            builder( builder&& );
+            builder& operator=( const builder& x );
+            builder& operator=( builder&& x );
 
             /// Insert a single value. Defaults to 0 if you're only setting
             /// nonzero structure
@@ -242,12 +250,14 @@ namespace petsc {
             /// to it.
             matrix move();
 
+            operator Mat() const { return this->m.ptr(); }
+
         private:
             matrix m;
 
             builder& assemble();
 
-            inline Mat ptr() const;
+            inline Mat ptr() const { return this->m.ptr(); }
 
             friend class matrix;
     };
