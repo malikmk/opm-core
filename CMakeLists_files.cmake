@@ -172,6 +172,7 @@ list (APPEND TEST_SOURCE_FILES
 	tests/test_nonuniformtablelinear.cpp
 	tests/test_parallelistlinformation.cpp
 	tests/test_sparsevector.cpp
+	tests/test_petscmixins.cpp
 	tests/test_petscvector.cpp
 	tests/test_petscmatrix.cpp
 	tests/test_sparsetable.cpp
@@ -304,6 +305,7 @@ list (APPEND PUBLIC_HEADER_FILES
 	opm/core/linalg/LinearSolverUmfpack.hpp
 	opm/core/linalg/LinearSolverPetsc.hpp
 	opm/core/linalg/petsc.hpp
+	opm/core/linalg/petscmixins.hpp
 	opm/core/linalg/petscvector.hpp
 	opm/core/linalg/petscmatrix.hpp
 	opm/core/linalg/blas_lapack.h
