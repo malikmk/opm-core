@@ -154,8 +154,8 @@ BOOST_AUTO_TEST_CASE(test_matrix_arithmetic) {
     auto base_matrix_copy = base_matrix;
     auto matrix_zero = get_csr_matrix( csr_vals_zero );
     vector zero_vector( 6, 0.0 );
-    vector base_vector( csr_vals, 6 );
-    vector spmv_vector( spmv_vals, 6 );
+    vector base_vector( std::vector< vector::scalar >( csr_vals, csr_vals + 6 ) );
+    vector spmv_vector( std::vector< vector::scalar >( spmv_vals, spmv_vals + 6 ) );
 
     BOOST_CHECK( identical( matrix_m2, base_matrix * 2 ) );
     BOOST_CHECK( identical( matrix_m2, base_matrix + base_matrix ) );

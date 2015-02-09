@@ -80,19 +80,11 @@ BOOST_AUTO_TEST_CASE(test_petscvector_constructors) {
     vector vector_from_stdvec( std_vec );
     vector vector_from_stdidx( std_vec, stdidx );
 
-    /* construct from raw arrays */
-    double vals[] = { 0.0, 1.0, 2.0, 3.0, 4.0 };
-    int idx[] = { 0, 1, 2, 3, 4 };
-    vector vector_from_array( vals, 5 );
-    vector vector_from_idx( vals, idx, 5 );
-
     BOOST_CHECK( vector_copy == vector_petsc );
     BOOST_CHECK( vector_from_stdvec == vector_from_stdidx );
-    BOOST_CHECK( vector_from_array == vector_from_idx );
 
     BOOST_CHECK( !( vector_copy != vector_petsc ) );
     BOOST_CHECK( !( vector_from_stdvec != vector_from_stdidx ) );
-    BOOST_CHECK( !( vector_from_array != vector_from_idx ) );
 }
 
 BOOST_AUTO_TEST_CASE(test_petscvector_arithmetic) {

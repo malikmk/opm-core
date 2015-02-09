@@ -87,23 +87,6 @@ namespace petsc {
             vector( const std::vector< scalar >&,
                     const std::vector< size_type >& indexset );
 
-            /// Construct from array. Provided to support legacy APIs and
-            /// C or C-style libraries. Works like the std::vector-constructor,
-            /// but with raw arrays.
-            /// \param[in] vector   array to copy from
-            /// \param[in] size     size of the array
-            vector( const scalar*, size_type );
-            /// Construct from array at the indices provided by indexset.
-            /// Provided to support legacy APIs and C or C-style libraries.
-            /// Works like the std::vector-constructor, but with raw arrays.
-            /// \param[in] vector   array to copy from
-            /// \param[in] indexset indices to assign values from the vector.
-            /// \param[in] size     size of the array
-            vector( const scalar*, const size_type* indexset, size_type );
-
-            /// Implicit conversion to Vec for compability with PETSc functions
-            operator Vec() const;
-
             /// Get vector size.
             /// \param[out] size    Number of elements in the vector
             size_type size() const;
