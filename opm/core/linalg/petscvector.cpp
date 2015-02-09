@@ -36,75 +36,84 @@ static inline std::vector< T > range( U begin, U end ) {
     return x;
 }
 
-vector::vector() {
+static inline Vec default_vector() {
     /* Meant to be used by other constructors. */
     Vec x;
     VecCreate( get_comm(), &x );
     VecSetFromOptions( x );
 
-    this->v.reset( x );
+    return x;
 }
 
-vector::vector( Vec x ) : v( x ) {}
+/* To provide exception safety, wrap the vector handles in a manged
+ * (unique_ptr) object. While it looks a bit ugly, it is used basically only in
+ * a few functions, so it should be ok.
+ *
+ * Using delegating constructors (gcc4.7-4.8) would be better, so a future TODO
+ * is to remove these functions in favour of delegating constructors.
+ */
 
-vector::vector( const vector& x ) {
+static inline Vec copy_vector( Vec x ) {
     Vec y;
     auto err = VecDuplicate( x, &y ); CHKERRXX( err );
+    std::unique_ptr< _p_Vec, deleter< _p_Vec > > result( y );
     err = VecCopy( x, y ); CHKERRXX( err );
 
-    this->v.reset( y );
+    return result.release();
 }
 
-vector::vector( vector::size_type size ) {
-    vector vec;
+static inline Vec sized_vector( vector::size_type size ) {
+    std::unique_ptr< _p_Vec, deleter< _p_Vec > > result( default_vector() );
 
-    this->v.swap( vec.v );
-
-    auto err = VecSetSizes( this->ptr(), PETSC_DECIDE, size );
+    auto err = VecSetSizes( result.get(), PETSC_DECIDE, size );
     CHKERRXX( err );
+
+    return result.release();
 }
 
-vector::vector( vector::size_type size, vector::scalar x ) {
-    vector vec( size );
-    this->v.swap( vec.v );
+static inline Vec set_vector( const std::vector< vector::scalar >& values,
+                            const std::vector< vector::size_type >& indices ) {
+
+    assert( values.size() == indices.size() );
+
+    std::unique_ptr< _p_Vec, deleter< _p_Vec > >
+        result( sized_vector( values.size() ) );
+
+    auto err = VecSetValues( result.get(), values.size(),
+            indices.data(), values.data(),
+            INSERT_VALUES );
+    CHKERRXX( err );
+
+    err = VecAssemblyBegin( result.get() ); CHKERRXX( err );
+    err = VecAssemblyEnd( result.get() ); CHKERRXX( err );
+
+    return result.release();
+
+}
+
+vector::vector( const vector& x ) : uptr( copy_vector( x ) ) {}
+
+/*
+ * When we can move to full C++11 support, these should ideally be implemented
+ * with delegating constructors.
+ */
+
+vector::vector( vector::size_type size ) : uptr( sized_vector( size ) ) {}
+
+vector::vector( vector::size_type size, vector::scalar x ) :
+        uptr( sized_vector( size ) )
+{
     this->assign( x );
 }
 
-vector::vector( const std::vector< vector::scalar >& values ) {
-    vector vec( values.data(), values.size() );
-    this->v.swap( vec.v );
-}
+vector::vector( const std::vector< vector::scalar >& values ) :
+    uptr( set_vector( values, range( 0, values.size() ) ) )
+{}
 
 vector::vector( const std::vector< vector::scalar >& values,
-                const std::vector< vector::size_type >& indexset ) {
-
-    assert( indexset.size() == values.size() );
-
-    vector vec( values.data(), indexset.data(), values.size() );
-    this->v.swap( vec.v );
-}
-
-vector::vector( const vector::scalar* values, vector::size_type size ) {
-    auto indices = range( 0, size );
-    vector vec( values, indices.data(), size );
-
-    this->v.swap( vec.v );
-}
-
-vector::vector(
-        const vector::scalar* values,
-        const vector::size_type* indexset,
-        vector::size_type size ) {
-
-    vector vec( size );
-
-    this->v.swap( vec.v );
-    this->set( values, indexset, size );
-}
-
-vector::operator Vec() const {
-    return this->ptr();
-}
+                const std::vector< vector::size_type >& indexset ) :
+    uptr( set_vector( values, indexset ) )
+{}
 
 vector::size_type vector::size() const {
     PetscInt x;
@@ -203,6 +212,11 @@ bool vector::operator!=( const vector& other ) const {
 inline void vector::set( const vector::scalar* values,
         const vector::size_type* indices,
         vector::size_type size ) {
+
+    /*
+     * TODO: reimplement this smarter, i.e. use setvalues and local updates if
+     * possible
+     */
 
     auto err = VecSetValues( this->ptr(), size,
             indices, values, INSERT_VALUES ); CHKERRXX( err );
