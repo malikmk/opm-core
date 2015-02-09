@@ -24,11 +24,11 @@ static inline void iota( ForwardIterator first, ForwardIterator last, T value ) 
 }
 #endif //HAVE_STD_IOTA
 
-template< typename T = vector::size_type, typename U = T >
-static inline std::vector< T > range( U begin, U end ) {
+static inline std::vector< vector::size_type >
+range( vector::size_type begin, vector::size_type end ) {
     using namespace std;
 
-    std::vector< T > x( end - begin );
+    std::vector< vector::size_type > x( end - begin );
     /* if std::iota is available, the function defined above shouldn't be
      * compiled in and std::iota should be used
      */
@@ -223,10 +223,6 @@ inline void vector::set( const vector::scalar* values,
 
     err = VecAssemblyBegin( this->ptr() ); CHKERRXX( err );
     err = VecAssemblyEnd( this->ptr() ); CHKERRXX( err );
-}
-
-inline Vec vector::ptr() const {
-    return this->v.get();
 }
 
 vector::scalar dot( const vector& lhs, const vector& rhs ) {

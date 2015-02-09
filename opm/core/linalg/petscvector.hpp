@@ -36,29 +36,37 @@
  */
 
 #include <opm/core/linalg/petsc.hpp>
+#include <opm/core/linalg/petscmixins.hpp>
 
 #include <petscvec.h>
 
-#include <memory>
 #include <vector>
 
 namespace Opm {
 namespace petsc {
 
+    template<>
+    struct deleter< _p_Vec >
+    { void operator()( Vec x ) { VecDestroy( &x ); } };
+
     /// Class implementing C++-support for PETSc's Vec object. Provides no
     /// extra indirection and can be used as a handle for vanilla PETSc
     /// functions, should the need be.
 
-    class vector {
+    class vector : public uptr< Vec > {
         public:
             typedef PetscScalar scalar;
             typedef PetscInt size_type;
 
-            /// Takes ownership of a Vec produced by some other means. The
-            /// destruction and lifetime is now managed by vector
-            explicit vector( Vec );
+            using uptr< Vec >::operator=;
+            using uptr< Vec >::uptr;
+
+            vector() = delete;
+
             /// Copy constructor
             vector( const vector& );
+
+            vector( vector&& ) = default;
 
             /// Constructor. Does not populate the vector with values.
             /// \param[in] size     Number of elements
@@ -145,16 +153,7 @@ namespace petsc {
             bool operator!=( const vector& ) const;
 
         private:
-            vector();
-
-            /* We rely on unique_ptr to manage lifetime semantics. */
-            struct del { void operator()( Vec v ) { VecDestroy( &v ); } };
-            std::unique_ptr< _p_Vec, del > v;
-
             inline void set( const scalar*, const size_type*, size_type );
-
-            /* a convenient, explicit way to get the underlying Vec */
-            inline Vec ptr() const;
     };
 
     /// Calculate the dot product of two vectors
