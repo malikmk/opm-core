@@ -2,6 +2,8 @@
 #define OPM_PETSCMATRIX_H
 
 #include <opm/core/linalg/petsc.hpp>
+#include <opm/core/linalg/petscmixins.hpp>
+
 
 #include <petscmat.h>
 
@@ -13,14 +15,20 @@ namespace petsc {
 
     class vector;
 
+    template<>
+    struct deleter< _p_Mat >
+    { void operator()( Mat x ) { MatDestroy( &x ); } };
+
     /// Class implementing C++-support for PETSc's Mat object. Provides no
     /// extra indirection and can be used as a handle for vanilla PETSc
     /// functions, should the need be.
 
-    class matrix {
+    class matrix : public uptr< Mat > {
         public:
             typedef PetscScalar scalar;
             typedef PetscInt size_type;
+
+            using uptr< Mat >::uptr;
 
             enum class nonzero_pattern { different, subset, same };
 
@@ -29,17 +37,12 @@ namespace petsc {
              */
             class builder;
 
-            /// Takes ownership of a Mat produced by some other means. The
-            /// destruction and lifetime is now managed by matrix. Provided for
-            /// compability with raw PETSc
-            explicit matrix( Mat );
+            matrix() = delete;
+
             /// Copy constructor
             matrix( const matrix& );
-
-            matrix& operator=( matrix x ) {
-                std::swap( this->m, x.m );
-                return *this;
-            }
+            matrix( matrix&& ) = default;
+            matrix& operator=( matrix&& ) = default;
 
             matrix( const builder& );
             matrix( builder&& );
@@ -50,9 +53,6 @@ namespace petsc {
             /// \param[in] rows         Number of rows
             /// \param[in] columns      Number of columns
             matrix( const std::vector< scalar >&, size_type, size_type );
-
-            /// Implicit conversion to Mat for compability with PETSc functions
-            operator Mat() const;
 
             /// Get number of rows.
             /// \param[out] size    Number of rows in the matrix
@@ -149,17 +149,9 @@ namespace petsc {
             matrix& hermitian_transpose();
 
         private:
-            matrix();
             matrix( size_type, size_type );
 
-            /* We rely on unique_ptr to manage lifetime semantics. */
-            struct del { void operator()( Mat m ) { MatDestroy( &m ); } };
-            std::unique_ptr< _p_Mat, del > m;
-
             template< typename T > T operator+( T );
-
-            /* a convenient, explicit way to get the underlying Mat */
-            inline Mat ptr() const { return this->m.get(); }
     };
 
     /// Matrix-matrix multiplication. This is similar to operator*, but with
@@ -181,24 +173,29 @@ namespace petsc {
     matrix transpose( const matrix& );
     matrix hermitian_transpose( matrix );
 
-    class matrix::builder {
+    class matrix::builder : private matrix {
         public:
             typedef matrix::scalar scalar;
             typedef matrix::size_type size_type;
 
-            builder() : m( Mat( NULL ) ) {} //= delete;
-
             /// Constructor. PETSc -needs- to know the dimensions of the matrix
-            /// beforehand, so a default constructor is not provided.
+            /// beforehand, so a default constructor is not provided. This
+            /// default constructor performs a guess on nonzeros (for
+            /// preallocation) and is likely to be inefficient. If you can
+            /// provide more information regarding nonzero pattern, please use
+            /// a different constructor.
             builder( size_type, size_type );
+
+            builder( size_type, size_type, const std::vector< size_type >& );
+            builder( size_type, size_type,
+                    const std::vector< size_type >&,
+                    const std::vector< size_type >& );
 
             /// Copy constructor. Copies the currently built state. Particulary
             /// useful when several matrices share some structure, but diverges
             /// at a certain point
             builder( const builder& );
-            builder( builder&& );
-            builder& operator=( const builder& x );
-            builder& operator=( builder&& x );
+            builder( builder&& ) = default;
 
             /// Insert a single value. Defaults to 0 if you're only setting
             /// nonzero structure
@@ -245,19 +242,8 @@ namespace petsc {
             /// have identical submatrices.
             matrix commit() const;
 
-            /// An explicit move constructor. The builder object is left in a
-            /// valid, but undefined state, i.e. you cannot keep adding values
-            /// to it.
-            matrix move();
-
-            operator Mat() const { return this->m.ptr(); }
-
         private:
-            matrix m;
-
             builder& assemble();
-
-            inline Mat ptr() const { return this->m.ptr(); }
 
             friend class matrix;
     };

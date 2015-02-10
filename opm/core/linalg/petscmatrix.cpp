@@ -3,6 +3,7 @@
 #include <opm/core/linalg/petscmatrix.hpp>
 
 
+#include <algorithm>
 #include <cassert>
 #include <memory>
 #include <utility>
@@ -16,17 +17,8 @@
  */
 static inline MPI_Comm get_comm() { return PETSC_COMM_WORLD; }
 
-/* ideally replace this with C++11's std::iota */
-#ifndef HAVE_STD_IOTA
-template< class ForwardIterator, class T >
-static inline void iota( ForwardIterator first, ForwardIterator last, T value ) {
-        while(first != last) *first++ = value++;
-}
-#endif //HAVE_STD_IOTA
-
 template< typename T = Opm::petsc::matrix::size_type, typename U >
 static inline std::vector< T > range( U begin, U end ) {
-    using namespace std;
 
     std::vector< T > x( end - begin );
     /* if std::iota is available, the function defined above shouldn't be
@@ -63,61 +55,53 @@ nz_structure( matrix::nonzero_pattern x ) {
     throw;
 }
 
-matrix::matrix() {
+static inline Mat default_matrix() {
     /* Meant to be used by other constructors. */
     Mat x;
     MatCreate( get_comm(), &x );
     MatSetFromOptions( x );
 
-    this->m.reset( x );
+    return x;
 }
 
-matrix::matrix( Mat x ) : m( x ) {}
-
-matrix::matrix( const matrix& x ) {
+static inline Mat copy_matrix( Mat x ) {
     Mat y;
     auto err = MatDuplicate( x, MAT_COPY_VALUES, &y ); CHKERRXX( err );
+    std::unique_ptr< _p_Mat, deleter< _p_Mat > > result( y );
     err = MatCopy( x, y, SAME_NONZERO_PATTERN ); CHKERRXX( err );
 
-    std::cout << "Copying into new matrix" << std::endl; 
-
-    this->m.reset( y );
+    return result.release();
 }
 
-matrix::matrix( const matrix::builder& builder ) :
-    m( builder.commit().m.release() ) { std::cout << "Constructed from builder" << std::endl; }
-
-matrix::matrix( matrix::builder&& builder ) :
-    /* assemble and move the builder's matrix object into this one */
-    m( builder.assemble().m.m.release() ) {}
-
-matrix::matrix( matrix::size_type rows, matrix::size_type cols ) {
-    matrix mat;
-
-    this->m.swap( mat.m );
-
-    auto err = MatSetSizes( this->ptr(),
+static inline
+Mat sized_matrix( matrix::size_type rows, matrix::size_type cols ) {
+    std::unique_ptr< _p_Mat, deleter< _p_Mat > > result( default_matrix() );
+    auto err = MatSetSizes( result.get(),
             PETSC_DECIDE, PETSC_DECIDE,
             rows, cols );
     CHKERRXX( err );
+
+    return result.release();
 }
+
+matrix::matrix( const matrix& x ) : uptr( copy_matrix( x ) ) {}
+
+matrix::matrix( const matrix::builder& builder ) :
+    uptr( std::move( builder.commit() ) ) {}
+
+matrix::matrix( matrix::builder&& builder ) :
+    uptr( std::move( builder.assemble() ) ) {}
 
 matrix::matrix( const std::vector< matrix::scalar >& values,
                 matrix::size_type rows,
-                matrix::size_type cols ) {
+                matrix::size_type cols ) :
+        matrix( sized_matrix( rows, cols ) )
+{
+    /* this is a very specific override to create a dense matrix */
+    MatSetType( this->ptr(), MATSEQDENSE );
 
-    assert( values.size() == rows * cols );
-
-    /* We know we want a dense matrix from this constructor, so we can afford
-     * to assume MatCreateDense is the right call
-     */
-    Mat mat;
-    auto err = MatCreateDense( get_comm(),
-                        PETSC_DECIDE, PETSC_DECIDE,
-                        rows, cols,
-                        NULL, &mat );
+    auto err = MatSeqDenseSetPreallocation( this->ptr(), NULL );
     CHKERRXX( err );
-    this->m.reset( mat );
 
     const auto indices = range( 0, std::max( rows, cols ) );
 
@@ -131,10 +115,6 @@ matrix::matrix( const std::vector< matrix::scalar >& values,
     CHKERRXX( err );
     err = MatAssemblyEnd( this->ptr(), MAT_FINAL_ASSEMBLY );
     CHKERRXX( err );
-}
-
-matrix::operator Mat() const {
-    return this->m.get();
 }
 
 matrix::size_type matrix::rows() const {
@@ -264,10 +244,6 @@ matrix& matrix::hermitian_transpose() {
     return *this;
 }
 
-//inline Mat matrix::ptr() const {
-//    return this->m.get();
-//}
-
 matrix multiply( const matrix& rhs, const matrix& lhs, matrix::scalar fill ) {
     Mat x;
     MatMatMult( rhs, lhs, MAT_INITIAL_MATRIX, fill, &x );
@@ -295,43 +271,134 @@ matrix hermitian_transpose( matrix rhs ) {
 }
 
 matrix::builder::builder( matrix::size_type rows, matrix::size_type cols )
-    //: m( matrix( rows, cols ) )
+    : matrix( sized_matrix( rows, cols ) )
 {
-    Mat x;
-    auto err = MatCreateAIJViennaCL( get_comm(),
-            PETSC_DECIDE, PETSC_DECIDE,
-            rows, cols,
-            20, NULL,
-            20, NULL,
-            &x );
-    //auto err = MatCreateAIJ( get_comm(),
-    //        PETSC_DECIDE, PETSC_DECIDE,
-    //        rows, cols,
-    //        20, NULL,
-    //        20, NULL,
-    //        &x );
-    //auto err = MatSeqAIJSetPreallocation( this->ptr(), 20, NULL );
-    //auto err = MatSetUp( this->ptr() );
+
+    /*
+     * This is an awkward case - we haven't been given much preallocation
+     * information to use, so we guess. Using the builder without setting
+     * proper preallocation may be considered an error in the future.
+     */
+
+    /* first, to avoid overflow, rescale the matrix dimensions to 1% of its
+     * size. If the matrix is smaller than 10x10 (unlikely, except for test
+     * cases), just set the new dimensions to 1.
+     */
+    const int m = std::max( 1, rows / 10 );
+    const int n = std::max( 1, cols / 10 );
+
+    /*
+     * Guess nonzeros per row in the diagonal portion of the matrix. Consider
+     * the matrix
+     * A | B | C
+     * --+---+---
+     * D | E | F
+     * --+---+---
+     * G | H | I
+     *
+     * Where the letters are sub matrices. The diagonal portion are the
+     * matrices A, E and I.
+     */
+
+    /*
+     * Per row in the diagonal portion we're again assuming 1% fill -of the 1%
+     * matrix-, i.e. for a 100k row matrix, we're assuming 10 nonzeros per row.
+     * Falling back to a minimum of 1. We're assuming we have the same number
+     * off the diagonal as well.
+     */
+    const int nnz_on_diag = std::max( 1, ( m * n ) / 100 );
+
+    auto err = MatSeqAIJSetPreallocation( this->ptr(),
+            2 * nnz_on_diag, NULL );
     CHKERRXX( err );
 
-    this->m = matrix( x );
+    err = MatMPIAIJSetPreallocation( this->ptr(),
+            nnz_on_diag, NULL,
+            nnz_on_diag, NULL );
+
+    CHKERRXX( err );
 }
 
-matrix::builder::builder( const matrix::builder& x ) : m( x.commit() ) {}
+matrix::builder::builder(
+        matrix::size_type rows,
+        matrix::size_type cols,
+        const std::vector< matrix::size_type >& nnz_per_row )
+    : matrix( sized_matrix( rows, cols ) )
+{
 
-matrix::builder::builder( matrix::builder&& x ) :
-    m( std::move( x.m ) ) {}
+    assert( nnz_per_row.size() == rows );
 
-matrix::builder& matrix::builder::operator=( const matrix::builder& x ) {
-    auto b = x;
-    std::swap( b.m, this->m );
-    return *this;
+    auto err = MatSeqAIJSetPreallocation( this->ptr(),
+            /*ignored*/ 0,
+            nnz_per_row.data() );
+    CHKERRXX( err );
+
+    /* Some shenanigans to minimise communication during matrix assembly.
+     *
+     * It is now sufficient to extract information for the parts that will end
+     * up belonging to this processor. In the worst case - the sequential one -
+     * it ends up being one full array copy.
+     */
+
+    matrix::size_type begin, end;
+    MatGetOwnershipRange( this->ptr(), &begin, &end );
+
+    std::vector< matrix::size_type > nnz_diag(
+            nnz_per_row.begin() + begin,
+            nnz_per_row.begin() + end );
+
+    /*
+     * This scheme overcommits local memory by a factor of 2 - that is, if the
+     * nnz_per_row vector is precise, preallocation will allocate exactly twice
+     * the memory, because it assumes as many nonzeros per row in the
+     * off-diagonals as in the diagonals. If this assumption does not hold and
+     * you want less memory strain, use a different constructor and give it
+     * more information.
+     */
+    err = MatMPIAIJSetPreallocation( this->ptr(),
+            /* ignored */ 0, nnz_diag.data(),
+            /* ignored */ 0, nnz_diag.data() );
+
+    CHKERRXX( err );
 }
 
-matrix::builder& matrix::builder::operator=( matrix::builder&& x ) {
-    std::swap( x.m.m, this->m.m );
-    return *this;
+matrix::builder::builder(
+        matrix::size_type rows,
+        matrix::size_type cols,
+        const std::vector< matrix::size_type >& nnz_on_diag,
+        const std::vector< matrix::size_type >& nnz_off_diag )
+    : matrix( sized_matrix( rows, cols ) )
+{
+
+    assert( nnz_on_diag.size() == nnz_off_diag.size() );
+
+    /* nnz_per_row[ i ] = nnz_on_diag[ i ] + nnz_off_diag[ i ]; */
+    std::vector< matrix::size_type > nnz_per_row( nnz_on_diag.size() );
+    std::transform( nnz_on_diag.begin(), nnz_on_diag.end(),
+            nnz_off_diag.begin(), nnz_per_row.begin(),
+            std::plus< matrix::size_type >() );
+
+    /*
+     * We calculate the sequential version's nonzero-per-row by simply
+     * zip-summing the on- and off-diag vectors
+     */
+    auto err = MatSeqAIJSetPreallocation( this->ptr(),
+            /*ignored*/ 0,
+            nnz_per_row.data() );
+    CHKERRXX( err );
+
+    /* Set only the local values to reduce communication */
+    matrix::size_type offset;
+    MatGetOwnershipRange( this->ptr(), &offset, NULL );
+
+    err = MatMPIAIJSetPreallocation( this->ptr(),
+            /* ignored */ 0, nnz_on_diag.data() + offset,
+            /* ignored */ 0, nnz_off_diag.data() + offset );
+
+    CHKERRXX( err );
 }
+
+matrix::builder::builder( const matrix::builder& x ) : matrix( x.commit() ) {}
 
 matrix::builder& matrix::builder::insert(
         matrix::size_type row,
@@ -424,17 +491,13 @@ matrix matrix::builder::commit() const {
      * This is ok because the -visible- object does not change, and is for all
      * intents and purposes still const
      */
-    return const_cast< builder& >( *this ).assemble().m;
-}
 
-matrix matrix::builder::move() {
-    /*
-     * We assume that matrix' constructor( builder&& ) handles the actual move
-     * and assembly. The reason for this is that we want return builder; to
-     * construct matrices, and we want the move constructor to behave nicely.
-     * Furthermore, this leads to less code duplication.
+    const_cast< builder& >( *this ).assemble();
+    /* Ensure we call matrix( const matrix& ). If we call matrix( const
+     * builder& ) we would end up in a loop, because the matrix( builder& )
+     * copy constructor must also ensure that commit is called.
      */
-    return *this;
+    return matrix( static_cast< const matrix& >( *this ) );
 }
 
 matrix::builder& matrix::builder::add(
@@ -464,10 +527,6 @@ matrix::builder& matrix::builder::assemble() {
 
     return *this;
 }
-
-//inline Mat matrix::builder::ptr() const {
-//    return this->m;
-//}
 
 }
 }
