@@ -47,7 +47,80 @@ class uptr< T* > : private std::unique_ptr< T, deleter< T > > {
 
     protected:
         inline pointer ptr() const;
+
+        friend void std::swap( uptr& lhs, uptr& rhs ) {
+            std::swap< std::unique_ptr< T, deleter< T > > >( lhs, rhs );
+        }
+
 };
+
+/*
+ * GCC4.4 does not support explicit conversion operators, so we implement the
+ * feature manually for the cases that might need them (see: petscsolver.cpp
+ * and convergence_report.
+ *
+ * In order to implement explicit operator bool() support, public inherit from
+ * this and imlpement the function explicit_boolean_test( const your_type& ):
+ *
+ * class new_type : explicit_bool_conversion< new_type > {};
+ * explicit_boolean_test( const new_type& x ) { return x.is_true(); }
+ *
+ * Obviously, explicit_boolean_test must be a visible symbol.
+ */
+class bool_base {
+    public:
+        operator bool() const = delete;
+        void unsupported_comparison_between_types() const {};
+
+    protected:
+        bool_base() = default;
+        bool_base( const bool_base& ) = default;
+        bool_base& operator=( const bool_base& ) = default;
+};
+
+template< typename T >
+class explicit_bool_conversion : private bool_base {
+    public:
+        operator bool() const {
+            return explicit_boolean_test( static_cast< const T& >( *this ) ) ?
+                &bool_base::unsupported_comparison_between_types : false;
+        }
+};
+
+/*
+ * Works like Haskell's newtype keyword, i.e. constructs a new type "alias".
+ * This is particularly useful in combination with overloading and will in most
+ * cases give simpler, cleaner and easier-to-read code.
+ *
+ * The newtype mixin creates a thin, typed layer (which compiles to zero
+ * overhead). The obvious use case is to carry semantics along with data. e.g.
+ * passing the newtype "age" instead of a raw int.
+ *
+ * For ease of implementation it only supports read-only data, i.e. once the
+ * type is set it is not possible to update the data, as the only access to it
+ * is implicit conversion. Meant for primary types.
+ *
+ * We offer the macro mknewtype( typename, basetype ) for ease of creation.
+ * Since we want to use the constructor from newtype and C++11 support in
+ * GCC4.4 haven't got inheriting constructors (using Base::Base;), we must
+ * implement "all" constructors manually.
+ */
+
+template< typename T >
+class newtype {
+    public:
+        template< typename U > newtype( U&& t );
+        operator T() const;
+
+    private:
+        T data;
+};
+
+#define mknewtype( name, basetype )                         \
+struct name : public Opm::petsc::newtype< basetype > {      \
+    template< typename T > name( T&& t ) :                  \
+        newtype( std::forward< T >( t ) ) {}                \
+}
 
 /*
  * Implementations
@@ -61,6 +134,42 @@ uptr< T* >::operator uptr< T* >::pointer() const {
 template< typename T >
 T* uptr< T* >::ptr() const {
     return this->get();
+}
+
+
+template< typename T >
+template< typename U >
+newtype< T >::newtype( U&& x ) : data( std::forward< U >( x ) ) {}
+
+template< typename T >
+newtype< T >::operator T() const {
+    return this->data;
+}
+
+template < typename T >
+bool operator==( const explicit_bool_conversion< T >& lhs, bool b) {
+    return b == static_cast< bool >( lhs );
+}
+
+template < typename T >
+bool operator==( bool b, const explicit_bool_conversion< T >& rhs ) {
+    return b == static_cast< bool >( rhs );
+}
+
+template < typename T, typename U >
+bool operator==( const explicit_bool_conversion< T >& lhs,
+        const explicit_bool_conversion< U >& rhs ) {
+
+    lhs.unsupported_comparison_between_types();
+    return false;
+}
+
+template < typename T, typename U >
+bool operator!=( const explicit_bool_conversion< T >& lhs,
+        const explicit_bool_conversion< U >& rhs ) {
+
+    lhs.unsupported_comparison_between_types();
+    return false;
 }
 
 }
