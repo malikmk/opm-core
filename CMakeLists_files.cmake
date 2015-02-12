@@ -49,7 +49,6 @@ list (APPEND MAIN_SOURCE_FILES
 	opm/core/linalg/LinearSolverInterface.cpp
 	opm/core/linalg/LinearSolverIstl.cpp
 	opm/core/linalg/LinearSolverUmfpack.cpp
-	opm/core/linalg/LinearSolverPetsc.cpp
 	opm/core/linalg/petscvector.cpp
 	opm/core/linalg/petscmatrix.cpp
 	opm/core/linalg/petsc.cpp
@@ -303,7 +302,6 @@ list (APPEND PUBLIC_HEADER_FILES
 	opm/core/linalg/LinearSolverInterface.hpp
 	opm/core/linalg/LinearSolverIstl.hpp
 	opm/core/linalg/LinearSolverUmfpack.hpp
-	opm/core/linalg/LinearSolverPetsc.hpp
 	opm/core/linalg/petsc.hpp
 	opm/core/linalg/petscmixins.hpp
 	opm/core/linalg/petscvector.hpp
