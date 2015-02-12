@@ -248,6 +248,11 @@ namespace petsc {
             friend class matrix;
     };
 
+    /* Adds the operator type - when a matrix needs to carry information as an
+     * operator.
+     */
+    class op : public matrix {};
+
 }
 }
 

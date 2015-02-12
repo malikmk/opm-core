@@ -184,6 +184,7 @@ BOOST_AUTO_TEST_CASE(test_petscvector_transpose) {
     for( int i = 0; i < 6*6; ++i ) {
         val_vec.push_back( values[ i ] );
     }
+
     matrix source( val_vec, 6, 6 );
     matrix inplace_transposed = source;
 

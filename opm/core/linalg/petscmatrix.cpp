@@ -95,7 +95,7 @@ matrix::matrix( matrix::builder&& builder ) :
 matrix::matrix( const std::vector< matrix::scalar >& values,
                 matrix::size_type rows,
                 matrix::size_type cols ) :
-        matrix( sized_matrix( rows, cols ) )
+        uptr( sized_matrix( rows, cols ) )
 {
     /* this is a very specific override to create a dense matrix */
     MatSetType( this->ptr(), MATSEQDENSE );
@@ -265,9 +265,7 @@ matrix transpose( const matrix& rhs ) {
 }
 
 matrix hermitian_transpose( matrix rhs ) {
-    matrix x( rhs );
-    x.hermitian_transpose();
-    return x;
+    return rhs.hermitian_transpose();
 }
 
 matrix::builder::builder( matrix::size_type rows, matrix::size_type cols )
