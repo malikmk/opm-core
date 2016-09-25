@@ -20,6 +20,8 @@
 #ifndef OPM_CORE_COMPAT_HPP
 #define OPM_CORE_COMPAT_HPP
 
+#include <cassert>
+
 #include <opm/common/data/SimulationDataContainer.hpp>
 #include <opm/core/props/BlackoilPhases.hpp>
 #include <opm/core/simulator/BlackoilState.hpp>
@@ -160,12 +162,41 @@ inline void solutionToSim( const data::Solution& sol,
 
 
 
-inline void wellsToState( const data::Wells& wells, WellState& state ) {
-    state.bhp() = wells.bhp;
-    state.temperature() = wells.temperature;
-    state.wellRates() = wells.well_rate;
-    state.perfPress() = wells.perf_pressure;
-    state.perfRates() = wells.perf_rate;
+inline void wellsToState( const data::Wells& wells,
+                          PhaseUsage phases,
+                          WellState& state ) {
+
+    using rt = data::Rates::opt;
+
+    const auto np = state.numPhases();
+    assert( np == phases.num_phases );
+
+    for( const auto& wm : state.wellMap() ) {
+        const auto well_index = wm.second[ 0 ];
+        const auto& well = wells.at( wm.first );
+
+        state.bhp()[ well_index ] = well.bhp;
+        state.temperature()[ well_index ] = well.temperature;
+
+        const auto wellrate_index = well_index * np;
+        if( phases.phase_used[BlackoilPhases::Aqua] ) {
+            assert( well.rates.has( rt::wat ) );
+            state.wellRates()[ wellrate_index + phases.phase_pos[BlackoilPhases::Aqua] ] = well.rates.get( rt::wat );
+        }
+
+        if( phases.phase_used[BlackoilPhases::Liquid] ) {
+            assert( well.rates.has( rt::oil ) );
+            state.wellRates()[ wellrate_index + phases.phase_pos[BlackoilPhases::Liquid] ] = well.rates.get( rt::oil );
+        }
+
+        if( phases.phase_used[BlackoilPhases::Vapour] ) {
+            assert( well.rates.has( rt::gas ) );
+            state.wellRates()[ wellrate_index + phases.phase_pos[BlackoilPhases::Vapour] ] = well.rates.get( rt::gas );
+        }
+
+        //state.perfPress() = wells.perf_pressure;
+        //state.perfRates() = wells.perf_rate;
+    }
 }
 
 }
