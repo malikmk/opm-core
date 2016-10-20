@@ -429,7 +429,7 @@ public:
                                           true,  /* unified     */
                                           ":",    /* join string */
                                           secondsSinceEpochStart,
-                                          time_in_days,
+                                          //time_in_days,
                                           nx,
                                           ny,
                                           nz);
