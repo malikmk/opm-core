@@ -197,7 +197,7 @@ namespace{
         PetscReal residual;
         KSPConvergedReason reason;
 
-        KSPSetOperators( t.ksp, t.A, t.A);//, DIFFERENT_NONZERO_PATTERN );
+        KSPSetOperators( t.ksp, t.A, t.A, DIFFERENT_NONZERO_PATTERN );
         KSPGetPC( t.ksp, &t.preconditioner );
         auto err = KSPSetType( t.ksp, method );
         CHKERRXX( err );
