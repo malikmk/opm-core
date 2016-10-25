@@ -467,6 +467,7 @@ list (APPEND PUBLIC_HEADER_FILES
 	opm/core/utility/platform_dependent/reenable_warnings.h
 	opm/core/utility/share_obj.hpp
 	opm/core/utility/thresholdPressures.hpp
+	opm/core/utility/TridiagonalMatrix.hpp
 	opm/core/wells/InjectionSpecification.hpp
 	opm/core/wells/ProductionSpecification.hpp
 	opm/core/wells/WellCollection.hpp
